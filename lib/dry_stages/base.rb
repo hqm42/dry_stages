@@ -12,17 +12,7 @@ module DryStages
           self.class.send(:define_method, stage_method) do
             cache_stage(stage_method) do
               previous_stage_output = send(previous_stage_name)
-              trace "^^^^ run #{stage_name} stage ^^^^"
-              trace 'input:'
-              trace previous_stage_output.inspect
-              trace '*args:'
-              trace args.inspect
-              instance_exec(previous_stage_output, *args, &transform_proc).tap do |output|
-                trace 'output:'
-                trace output.inspect
-                trace "$$$$$$$$$$$$$$$$$$$$#{stage_name.gsub /./, '$'}"
-                puts
-              end
+              instance_exec(previous_stage_output, *args, &transform_proc)
             end
           end
           self.class.send(:private, stage_method)
@@ -41,7 +31,11 @@ module DryStages
     end
 
     def run!
-      self.send(self.class.stages.last)
+      self.send(self.class.stages.last || :input)
+    end
+
+    def input
+      raise "subclasses of #{Base.name} must implement #input"
     end
 
     def stages
@@ -59,10 +53,8 @@ module DryStages
     def cache_stage(stage_method, &block)
       variable_name = cache_variable_name(stage_method)
       if instance_variable_defined?(variable_name)
-        trace "cached(#{stage_method})"
         instance_variable_get(variable_name)
       else
-        trace "compute(#{stage_method})"
         instance_variable_set(cache_variable_name(stage_method), block.call)
       end
     end
@@ -74,25 +66,11 @@ module DryStages
         each do |stage_method_to_invalidate|
         variable_name = cache_variable_name(stage_method_to_invalidate)
         if instance_variable_defined?(variable_name)
-          trace "invalidate(#{stage_method_to_invalidate})"
           remove_instance_variable(variable_name)
         else
-          trace "invalidate(#{stage_method_to_invalidate}) failed"
           break
         end
       end
     end
-
-      # debug
-
-      def trace(message)
-        if self.class.trace
-          puts message
-        end
-      end
-
-      def self.trace
-        true
-      end
-    end
   end
+end
