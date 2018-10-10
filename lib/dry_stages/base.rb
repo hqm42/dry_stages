@@ -1,11 +1,5 @@
 module DryStages
   class Base
-    def self.inherited(subclass)
-      subclass.define_singleton_method('stages') do
-        superclass.stages + (@stages ||= [])
-      end
-    end
-
     def self.def_stage_def(stage_name, config_prefix, stage_method)
       previous_stage_name = stages.last || :input
       @stages << stage_method.to_sym
@@ -42,11 +36,16 @@ module DryStages
     end
 
     def self.stages
-      @stages ||= []
+      super_stages = superclass.respond_to?(:stages) ? superclass.stages : []
+      super_stages + (@stages ||= [])
     end
 
     def run!
       self.send(self.class.stages.last)
+    end
+
+    def stages
+      self.class.stages
     end
 
     private
@@ -70,10 +69,9 @@ module DryStages
 
     def invalidate_from(stage_method)
       self.
-        class.
-          stages.
-          drop_while { |some_stage_method| some_stage_method != stage_method.to_sym }.
-          each do |stage_method_to_invalidate|
+        stages.
+        drop_while { |some_stage_method| some_stage_method != stage_method.to_sym }.
+        each do |stage_method_to_invalidate|
         variable_name = cache_variable_name(stage_method_to_invalidate)
         if instance_variable_defined?(variable_name)
           trace "invalidate(#{stage_method_to_invalidate})"
@@ -83,7 +81,7 @@ module DryStages
           break
         end
       end
-      end
+    end
 
       # debug
 
