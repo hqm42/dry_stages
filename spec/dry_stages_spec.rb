@@ -1,7 +1,9 @@
+# frozen_string_literal: true
+
 require 'csv'
 
 RSpec.describe DryStages do
-  it "has a version number" do
+  it 'has a version number' do
     expect(DryStages::VERSION).not_to be nil
   end
 
@@ -9,14 +11,14 @@ RSpec.describe DryStages do
     Class.new(DryStages::Base) do
       attr_reader :input
       def initialize
-        @input = [[1,2,3], [:a, :b, :c]]
+        @input   = [[1, 2, 3], [:a, :b, :c]]
         @next_id = 1
-        @store = {}
+        @store   = {}
       end
 
       def store(data)
-        id = @next_id
-        @next_id += 1
+        id         = @next_id
+        @next_id  += 1
         @store[id] = data
         id
       end
@@ -44,7 +46,7 @@ RSpec.describe DryStages do
       def_delivery_stage 'debug', -> (id) {
         puts
         puts '    ^^^^ DELIVER DEBUG ^^^^'
-        puts "    id: #{id}"
+        puts "    id: #{ id }"
         puts '    #######################'
         puts '    content:'
         puts find(id)
@@ -54,7 +56,7 @@ RSpec.describe DryStages do
     end
   end
 
-  it "does something useful" do
+  it 'does something useful' do
     export = export_class.new
     p export.class.dry_stages
     p export
