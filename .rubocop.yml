@@ -1,10 +1,6 @@
 AllCops:
   Exclude:
     - bin/**/*
-    - script/**/*
-    - tmp/**/*
-    - vendor/**/*
-    - gems/**/*
 
   TargetRubyVersion: 2.4.2
 

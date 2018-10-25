@@ -34,8 +34,9 @@ module DryStages
       end
 
       def dry_stages
-        super_stages                   = superclass.respond_to?(:dry_stages) ? superclass.dry_stages : []
-        super_stages + (@_dry_stages ||= [])
+        super_stages  = superclass.respond_to?(:dry_stages) ? superclass.dry_stages : []
+        @dry_stages ||= []
+        super_stages + @_dry_stages
       end
 
     end
@@ -65,7 +66,7 @@ module DryStages
       if stage_index.nil?
         raise "unknow dry_stage #{ stage_name }. Avalable stages #{ dry_stages }"
       else
-        @_dry_stages_cache.fetch(stage_index) { raise "uncached dry_stage #{ stage_name }" }
+        (@_dry_stages_cache ||= []).fetch(stage_index) { raise "uncached dry_stage #{ stage_name }" }
       end
     end
 

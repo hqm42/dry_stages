@@ -1,112 +1,90 @@
 # frozen_string_literal: true
 
-require 'csv'
-
 RSpec.describe DryStages do
   it 'has a version number' do
     expect(DryStages::VERSION).not_to be nil
   end
 
-  let(:export_class) do
-    Class.new(DryStages::Base) do
-      attr_reader :input
-      def initialize
-        @input   = [[1, 2, 3], [:a, :b, :c]]
-        @next_id = 1
-        @store   = {}
+  context 'with a class using DryStages::Stages' do
+    let(:example_class) do
+      Class.new do
+        include DryStages::Stages
+      end
+    end
+
+    it 'returns dry_stages' do
+      expect(example_class.dry_stages).to eq([])
+    end
+
+    it 'can define new stages with .def_stage_def' do
+      expect(example_class).not_to respond_to(:def_dummy_stage)
+
+      example_class.def_stage_def :dummy, :some_prefix
+
+      expect(example_class).to respond_to(:def_dummy_stage)
+    end
+
+    context 'with an instance' do
+      before do
+        example_class.def_stage_def :format, :to
       end
 
-      def store(data)
-        id         = @next_id
-        @next_id  += 1
-        @store[id] = data
-        id
+      let(:example_instance) { example_class.new }
+
+      it 'can define stage implementations' do
+        expect(example_instance).
+          not_to respond_to(:to_upper_case)
+
+        example_class.def_format_stage :upper_case, -> (input) { input.upcase }
+
+        expect(example_instance).
+          to respond_to(:to_upper_case)
       end
 
-      def find(id)
-        @store[id]
-      end
+      context 'with #input defined' do
+        before do
+          example_class.define_method(:input) { 'abc' }
+          example_class.def_format_stage :upper_case, -> (input) { input.upcase }
+        end
 
-      def_stage_def('format', 'to')
-      def_stage_def('persistence', 'persist_with')
-      def_stage_def('delivery', 'send_to')
-
-      def_format_stage 'csv', -> (table, **options) {
-        CSV.generate(**options) do |csv|
-          table.each do |row|
-            csv << row
+        context 'without stage unconfigured' do
+          it 'tells the developer about unconfigures stage' do
+            expect { example_instance.run! }.to raise_error(/unconfigured/)
           end
         end
-      }
 
-      def_persistence_stage 'store', -> (data) {
-        store(data)
-      }
-
-      def_delivery_stage 'debug', -> (id) {
-        puts
-        puts '    ^^^^ DELIVER DEBUG ^^^^'
-        puts "    id: #{ id }"
-        puts '    #######################'
-        puts '    content:'
-        puts find(id)
-        puts '    $$$$$$$$$$$$$$$$$$$$$$$'
-        puts
-      }
-    end
-  end
-
-  it 'does something useful' do
-    export = export_class.new
-    p export.class.dry_stages
-    p export
-    export.to_csv.persist_with_store.send_to_debug.run!
-    puts
-    puts
-    export.persist_with_store.run!
-    p export
-    p export.dry_stage_result :format
-    p export.dry_stage_result :persistence
-    p export.dry_stage_result :delivery
-    export.to_csv(col_sep: ';')
-  end
-
-  let(:export_sub_class) do
-    Class.new(export_class) do
-      def_format_stage 'reverse_csv', -> (table, **options) {
-        CSV.generate(**options) do |csv|
-          table.each do |row|
-            csv << row
+        context 'with stage configured' do
+          it 'can be run!' do
+            expect(example_instance.to_upper_case.run!).to eq('ABC')
           end
-        end.reverse
-      }
-    end
-  end
 
-  it 'does not blow up in my face' do
-    export = export_sub_class.new
-    p export.class.dry_stages
-    p export.to_reverse_csv.persist_with_store.send_to_debug
-    p export.run!
-    p export.dry_stages_configs
-  end
+          context 'after it has been run' do
+            before do
+              example_instance.to_upper_case.run!
+            end
 
-  it 'works' do
-    c = Class.new do
-      include DryStages::Stages
+            it 'can inspect stage result by stage name' do
+              expect(example_instance.dry_stage_result(:format)).to eq('ABC')
+            end
 
-      def_stage_def 'transform', 'to'
+            context 'and then reconfigured' do
+              before do
+                example_instance.to_upper_case
+              end
 
-      def_transform_stage 'reverse', -> (input) { input.split('').reverse.join }
+              it 'can not inspect stage result by stage name and informs the developer about uncached stage' do
+                expect { example_instance.dry_stage_result(:format) }.to raise_error(/uncached/)
+              end
+            end
+          end
 
-      def input
-        'abc'
+          context 'before it has been run' do
+            it 'can not inspect stage result by stage name and informs the developer about uncached stage' do
+              expect { example_instance.dry_stage_result(:format) }.to raise_error(/uncached/)
+            end
+          end
+        end
       end
     end
-
-    e = c.new.to_reverse
-    p e.dry_stages_configs
-    p e.run!
-    p e.dry_stage_result :transform
   end
 end
