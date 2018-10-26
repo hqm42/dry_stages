@@ -35,7 +35,7 @@ module DryStages
 
       def dry_stages
         super_stages  = superclass.respond_to?(:dry_stages) ? superclass.dry_stages : []
-        @dry_stages ||= []
+        @_dry_stages ||= []
         super_stages + @_dry_stages
       end
 
