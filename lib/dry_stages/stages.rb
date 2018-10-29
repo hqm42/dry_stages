@@ -25,7 +25,7 @@ module DryStages
           stage_config_method_name = :"#{config_prefix}_#{name}"
 
           define_method(stage_config_method_name) do |*args|
-            stage_config                             = { stage: stage_name, type: name, args: args, transform_proc: transform_proc }
+            stage_config                             = { stage: stage_name, type: name.to_sym, args: args, transform_proc: transform_proc }
             _dry_stages_configs[current_stage_index] = stage_config
             invalidate_from(current_stage_index)
             self
