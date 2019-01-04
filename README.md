@@ -84,7 +84,7 @@ class FibonacciExport < Export
 end
 ```
 
-Configure and `run!` the export.an usefull 
+Configure and `run!` the export.
 ```ruby
 # instanciate the export
 fibonacci_export = FibonacciExport.new(10)
