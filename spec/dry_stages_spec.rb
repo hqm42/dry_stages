@@ -24,6 +24,52 @@ RSpec.describe DryStages do
       expect(example_class).to respond_to(:def_dummy_stage)
     end
 
+    context 'with default stage implementation' do
+      let(:example_instance) { example_class.new }
+
+      before do
+        example_class.define_method(:input) { 'abc' }
+      end
+
+      context 'when not configurable' do
+        before do
+          example_class.def_stage_def(:format, configurable: false) do |input|
+            input.upcase
+          end
+        end
+
+        it 'uses the default implementation' do
+          expect(example_instance.run!).to eq('ABC')
+        end
+
+        it 'can not define new transforms' do
+          expect(example_class).not_to respond_to(:def_format_stage)
+        end
+      end
+
+      context 'when configurable' do
+        before do
+          example_class.def_stage_def(:format, :to, configurable: true) do |input|
+            input.upcase
+          end
+        end
+
+        it 'uses the default implementation' do
+          expect(example_instance.run!).to eq('ABC')
+        end
+
+        it 'can define new transforms' do
+          expect(example_class).to respond_to(:def_format_stage)
+        end
+
+        it 'can use non default transforms' do
+          example_class.def_format_stage(:hello) { |input| 'hello' }
+          expect(example_instance.to_hello.run!).to eq('hello')
+        end
+      end
+
+    end
+
     context 'with an instance' do
       before do
         example_class.def_stage_def :format, :to
@@ -48,7 +94,7 @@ RSpec.describe DryStages do
         end
 
         context 'without stage unconfigured' do
-          it 'tells the developer about unconfigures stage' do
+          it 'tells the developer about unconfigured stage' do
             expect { example_instance.run! }.to raise_error(/unconfigured/)
           end
         end

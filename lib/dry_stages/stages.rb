@@ -9,26 +9,31 @@ module DryStages
 
     module ClassMethods
 
-      def def_stage_def(stage_name, config_prefix)
+      def def_stage_def(stage_name, config_prefix = nil, configurable: true, &default_transform_proc)
+        raise "No default implementation for non configurable stage #{stage_name} given." if !configurable && default_transform_proc.nil?
+        raise "Config prefix for non configurable stage #{stage_name} given." if !configurable && !config_prefix.nil?
+        raise "Config prefix for configurable stage #{stage_name} missing." if configurable && config_prefix.nil?
         previous_stage_index  = dry_stages.length - 1
         current_stage_index   = previous_stage_index + 1
         stage_def_method_name = :"def_#{stage_name}_stage"
 
-        @_dry_stages << stage_name.to_sym
+        @_dry_stages << { name: stage_name.to_sym, configurable: configurable, default_transform_proc: default_transform_proc }
 
-        define_singleton_method(stage_def_method_name) do |name, transform_proc = nil, &transform_block|
-          if transform_proc && transform_block
-            raise "Proc and block passed to #{ stage_def_method_name }. Only one is allowed at a time."
-          end
+        if configurable
+          define_singleton_method(stage_def_method_name) do |name, transform_proc = nil, &transform_block|
+            if transform_proc && transform_block
+              raise "Proc and block passed to #{ stage_def_method_name }. Only one is allowed at a time."
+            end
 
-          transform_proc         ||= transform_block
-          stage_config_method_name = :"#{config_prefix}_#{name}"
+            transform_proc         ||= transform_block
+            stage_config_method_name = :"#{config_prefix}_#{name}"
 
-          define_method(stage_config_method_name) do |*args|
-            stage_config                             = { stage: stage_name.to_sym, type: name.to_sym, args: args, transform_proc: transform_proc }
-            _dry_stages_configs[current_stage_index] = stage_config
-            invalidate_from(current_stage_index)
-            self
+            define_method(stage_config_method_name) do |*args|
+              stage_config                             = { stage: stage_name.to_sym, type: name.to_sym, args: args, transform_proc: transform_proc }
+              _dry_stages_configs[current_stage_index] = stage_config
+              invalidate_from(current_stage_index)
+              self
+            end
           end
         end
       end
@@ -54,7 +59,7 @@ module DryStages
     # public introspection methods
 
     def dry_stages
-      self.class.dry_stages
+      self.class.dry_stages.map { |name:, **_| name }
     end
 
     def dry_stages_configs
@@ -73,11 +78,20 @@ module DryStages
     private
 
     def _dry_stages_configs
-      @_dry_stages_configs ||= []
+      @_dry_stages_configs ||= self.class.dry_stages.map do |name:, default_transform_proc:, **_|
+        if default_transform_proc
+          {
+            stage: name.to_sym,
+            type: :default,
+            args: [],
+            transform_proc: default_transform_proc
+          }
+        end
+      end
     end
 
     def dry_stage_config(index)
-      _dry_stages_configs.fetch(index) { raise "unconfigured dry_stage #{ dry_stages[index] }" }
+      _dry_stages_configs[index] || (raise "unconfigured dry_stage #{ dry_stages[index] }")
     end
 
     def run_dry_stage!(index)
